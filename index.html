@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LAESA</title>
+
+    <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css"/>
+    <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe"
+            crossorigin="anonymous"></script>
+
+
+</head>
+<body>
+<div style="width: 80vw; margin-left: auto; margin-right: auto; display: flex; margin-top: 32px">
+    <div style="width: 50vw">
+        <h2>Result</h2>
+        <div id="result" style="white-space: pre-line">
+
+        </div>
+    </div>
+    <div style="width: 30vw">
+        <h2>Index</h2>
+        <div style="margin-bottom: 24px">
+            <label for="input-samples-count" class="form-label">Samples (count, dimensions)</label>
+            <div class="input-group mb-3">
+                <input type="number" class="form-control" placeholder="Count" min="1" step="1" id="input-samples-count" value="10000">
+                <input type="number" class="form-control" placeholder="Dimension" min="1" step="1" value="2"
+                       id="input-samples-dimension">
+            </div>
+        </div>
+
+        <div class="btn-group" role="group" aria-label="Basic radio toggle button group"
+             style="width: 100%; margin-bottom: 24px">
+            <input type="radio" class="btn-check" name="btnradio" id="euclidean-distance" autocomplete="off"
+                   checked>
+            <label class="btn btn-outline-secondary" for="euclidean-distance">Euclidean distance</label>
+
+            <input type="radio" class="btn-check" name="btnradio" id="matrix-distance" autocomplete="off">
+            <label class="btn btn-outline-secondary" for="matrix-distance">Matrix distance</label>
+        </div>
+
+        <div class="input-group" style="margin-bottom: 24px">
+            <input type="number" class="form-control" placeholder="Pivot count" min="1" step="1" id="pivot-count" value="10">
+
+            <input type="radio" class="btn-check" name="btnradio2" id="k-means-pivots" autocomplete="off" checked>
+            <label class="btn btn-outline-secondary" for="k-means-pivots">k-means pivots</label>
+
+            <input type="radio" class="btn-check" name="btnradio2" id="random-pivots" autocomplete="off">
+            <label class="btn btn-outline-secondary" for="random-pivots">Random pivots</label>
+        </div>
+
+        <div class="btn-group" role="group" style="width: 100%; margin-bottom: 24px">
+            <button type="button" class="btn btn-primary" py-click="calc_index()" id="calc-index-btn">Calculate
+                index
+            </button>
+            <button type="button" class="btn btn-primary" py-click="reset_index()" id="reset-index-btn">Reset
+                index
+            </button>
+        </div>
+
+        <h2>Search</h2>
+        <div>
+            <label for="input-point" class="form-label">Point</label>
+            <div class="input-group mb-3">
+                <span class="input-group-text">[</span>
+                <input type="text" class="form-control" id="input-point" value="0.5, 0.5">
+                <span class="input-group-text">]</span>
+            </div>
+        </div>
+
+        <div class="form-check">
+                <input class="form-check-input" type="checkbox" value="" id="use-index" checked>
+                <label class="form-check-label" for="use-index">
+                    Use index
+                </label>
+            </div>
+
+
+        <div>
+            <label for="input-range" class="form-label">Range search</label>
+            <div class="input-group mb-3">
+                <input type="number" class="form-control" placeholder="Range" min="0" step="0.01" id="input-range" value="0.20">
+                <button class="btn btn-outline-secondary" type="button" id="button-range" py-click="range_search()">
+                    Search
+                </button>
+
+                <button class="btn btn-outline-secondary" type="button" id="button-range-test" py-click="range_test()">
+                    Test
+                </button>
+            </div>
+        </div>
+
+        <div>
+            <label for="input-k" class="form-label">knn search</label>
+            <div class="input-group mb-3">
+                <input type="number" class="form-control" placeholder="k" min="0" id="input-k" value="50">
+                <button class="btn btn-outline-secondary" type="button" id="button-k" py-click="knn_search()">
+                    Search
+                </button>
+
+                <button class="btn btn-outline-secondary" type="button" id="button-knn-test" py-click="knn_test()">
+                    Test
+                </button>
+            </div>
+        </div>
+
+        <div>
+            <span id="message" style="white-space: pre-line"></span>
+        </div>
+    </div>
+</div>
+<py-config>
+    packages = ["numpy", "matplotlib", "scikit-learn"]
+    [[fetch]]
+    files = ["./laesa.py"]
+</py-config>
+<py-script>
+        import sys
+        from js import console
+        import numpy as np
+        from laesa import Index
+
+        index = Index()
+
+        async def calc_index():
+            try:
+                count = int(Element('input-samples-count').element.value)
+                dim = int(Element('input-samples-dimension').element.value)
+
+                if count <= 0 or dim <= 0:
+                    raise Exception('count or dimension is not positive number')
+
+                metric = 'euclid' if Element('euclidean-distance').element.checked else 'matrix'
+
+                global index
+                index = Index(dim, metric)
+
+                index.add_data(count)
+
+                pivot_count = int(Element('pivot-count').element.value)
+                method = 'random' if Element('random-pivots').element.checked else 'kmeans'
+
+                if pivot_count <= 0:
+                    raise Exception('pivot count is not positive number')
+
+                index.calc_index(pivot_count, method)
+
+                Element('input-samples-count').element.disabled = True
+                Element('input-samples-dimension').element.disabled = True
+                Element('euclidean-distance').element.disabled = True
+                Element('matrix-distance').element.disabled = True
+                Element('calc-index-btn').element.disabled = True
+                Element('pivot-count').element.disabled = True
+                Element('random-pivots').element.disabled = True
+                Element('k-means-pivots').element.disabled = True
+
+                Element('button-range-test').element.disabled = False
+                Element('button-knn-test').element.disabled = False
+                Element('reset-index-btn').element.disabled = False
+                Element('button-k').element.disabled = False
+                Element('button-range').element.disabled = False
+
+                Element('message').write('Index calculated')
+            except Exception as e:
+                Element('message').write(f'Wrong params: {str(e)}')
+
+        def reset_index():
+            Element('input-samples-count').element.disabled = False
+            Element('input-samples-dimension').element.disabled = False
+            Element('euclidean-distance').element.disabled = False
+            Element('matrix-distance').element.disabled = False
+            Element('calc-index-btn').element.disabled = False
+            Element('pivot-count').element.disabled = False
+            Element('random-pivots').element.disabled = False
+            Element('k-means-pivots').element.disabled = False
+
+            Element('button-range-test').element.disabled = True
+            Element('button-knn-test').element.disabled = True
+            Element('reset-index-btn').element.disabled = True
+            Element('button-k').element.disabled = True
+            Element('button-range').element.disabled = True
+
+            Element('message').write('Index reset')
+
+        def range_search():
+            try:
+                point = np.array([float(coord) for coord in Element('input-point').element.value.split(',')])
+                max_range = float(Element('input-range').element.value)
+
+                if max_range < 0:
+                    raise Exception('range should be non-negative')
+
+                use_index = Element('use-index').element.checked
+
+                result = index.range_query(point, max_range, use_index=use_index, return_stats='both', quiet=True)
+
+                np.set_printoptions(threshold=sys.maxsize)
+                Element('result').write(str(result[0]))
+                Element('message').write(
+                    f'Search successful:\nrange query(point={point}, range={max_range}, use_index={use_index})\ntime: {result[1] / 1000:.2f} ms\ndistance calculated: {result[2]:.0f} ({result[2] / result[3] * 100:.2f} % of dataset)\nselected points: {result[4]:.0f} ({result[4] / result[3] * 100:.2f} % of dataset)')
+
+            except Exception as e:
+                Element('message').write(f'Wrong params: {str(e)}')
+
+        def range_test():
+            try:
+                point = np.array([float(coord) for coord in Element('input-point').element.value.split(',')])
+                max_range = float(Element('input-range').element.value)
+
+                if max_range < 0:
+                    raise Exception('range should be non-negative')
+
+                result = index.test_range_query(point, max_range)
+
+                Element('result').write('')
+                Element('message').write(f'Range test result: {result}')
+
+            except Exception as e:
+                Element('message').write(f'Wrong params: {str(e)}')
+
+        def knn_test():
+            try:
+                point = np.array([float(coord) for coord in Element('input-point').element.value.split(',')])
+                k = int(Element('input-k').element.value)
+
+                if k <= 0:
+                    raise Exception('k is not positive number')
+
+                result = index.test_knn_query(point, k)
+
+                Element('result').write('')
+                Element('message').write(f'knn test result: {result}')
+
+            except Exception as e:
+                Element('message').write(f'Wrong params: {str(e)}')
+
+        def knn_search():
+            try:
+                point = np.array([float(coord) for coord in Element('input-point').element.value.split(',')])
+                k = int(Element('input-k').element.value)
+
+                use_index = Element('use-index').element.checked
+
+                if k <= 0:
+                    raise Exception('k is not positive number')
+
+                result = index.knn_query(point, k, use_index=use_index, return_stats='both', quiet=True)
+
+                Element('result').write(str(result[0]))
+                Element('message').write(
+                    f'Search successful:\nrange query(point={point}, k={k}, use_index={use_index})\ntime: {result[1] / 1000:.2f} ms\ndistance calculated: {result[2]:.0f} ({result[2] / result[3] * 100:.2f} % of dataset)\nselected points: {result[4]} ({result[4] / result[3] * 100:.2f} % of dataset)')
+            except Exception as e:
+                Element('message').write(f'Wrong params: {str(e)}')
+
+        reset_index()
+        Element('message').write('')
+</py-script>
+</body>
+</html>
+<!-- python3 -m http.server -->
